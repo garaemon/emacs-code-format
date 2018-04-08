@@ -71,16 +71,6 @@
   :type 'string
   :group 'code-format)
 
-(defcustom code-format-enable-c++-buffer-mode t
-  "Use c++-mode to colorize buffer which clang-format applied."
-  :type 'boolean
-  :group 'code-format)
-
-(defcustom code-format-enable-python-buffer-mode t
-  "Use PYTHON-MODE to colorize buffer which autopep8 applied."
-  :type 'boolean
-  :group 'code-format)
-
 (defcustom code-format-formatter-alist
   '((c++-mode . code-format-c++-clang-format)
     (python-mode . code-format-python-autopep8-format)
@@ -137,9 +127,6 @@ CHAR-START to CHAR-END."
                          (forward-line 1)
                          (beginning-of-line)
                          (point))))
-      (if code-format-enable-c++-buffer-mode
-          (with-current-buffer temp-buffer
-            (c++-mode)))
       temp-buffer)))
 
 (defun code-format-python-autopep8-format (code-buffer char-start char-end)
@@ -158,9 +145,6 @@ CHAR-START to CHAR-END."
              "--line-range" (number-to-string start) (number-to-string end)
              "-"
              code-format-autopep8-options)
-      (if code-format-enable-python-buffer-mode
-          (with-current-buffer temp-buffer
-            (python-mode)))
       temp-buffer)))
 
 (defun code-format-prettier-format (code-buffer char-start char-end)
@@ -175,12 +159,10 @@ CHAR-START to CHAR-END."
       (apply #'call-process-region
              (point-min) (point-max) exe
              nil temp-buffer nil
-             ;;"-assume-filename" (or (buffer-file-name) "")
              "--range-start" (number-to-string (1- start))
              "--range-end" (number-to-string (1- end))
              "--stdin"
              code-format-prettier-options)
-      ;; force to set major mode for temp-buffer?
       temp-buffer)))
 
 (defun code-format-view-region (char-start char-end)
@@ -198,6 +180,15 @@ the end position of region to format."
         (let ((formatted-buffer
                (funcall format-function-symbol (current-buffer)
                         char-start char-end)))
+          ;; Set major-mode of `formatted-buffer' to major-mode of `current-buffer' because current
+          ;; major-mode of `formatted-buffer' is "Fundamental mode".
+          (let ((current-buffer-major-mode major-mode))
+            ;; copy `major-mode' value to `current-buffer-major-mode' because in
+            ;; `with-current-buffer' macro, `major-mode' value is over written to the value of
+            ;; `formatted-buffer'.
+            (with-current-buffer formatted-buffer
+              (funcall current-buffer-major-mode)
+              ))
           (if (code-format-have-difference (current-buffer) formatted-buffer)
               (ediff-buffers (current-buffer) formatted-buffer)
             (message "No need to fix! Have a good luck!")))
