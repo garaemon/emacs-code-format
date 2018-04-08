@@ -51,6 +51,11 @@
   :type 'string
   :group 'code-format)
 
+(defcustom code-format-prettier-executable nil
+  "Path to prettier executable."
+  :type 'string
+  :group 'code-format)
+
 (defcustom code-format-clang-options nil
   "Options for clang-format."
   :type 'string
@@ -61,19 +66,29 @@
   :type 'string
   :group 'code-format)
 
+(defcustom code-format-prettier-options nil
+  "Options for prettier."
+  :type 'string
+  :group 'code-format)
+
 (defcustom code-format-enable-c++-buffer-mode t
   "Use c++-mode to colorize buffer which clang-format applied."
   :type 'boolean
   :group 'code-format)
 
 (defcustom code-format-enable-python-buffer-mode t
-  "Use python-mode to colorize buffer which autopep8 applied."
+  "Use PYTHON-MODE to colorize buffer which autopep8 applied."
   :type 'boolean
   :group 'code-format)
 
 (defcustom code-format-formatter-alist
   '((c++-mode . code-format-c++-clang-format)
-    (python-mode . code-format-python-autopep8-format))
+    (python-mode . code-format-python-autopep8-format)
+    (typescript-mode . code-format-prettier-format)
+    (javascript-mode . code-format-prettier-format)
+    (web-mode . code-format-prettier-format)
+    (js-mode . code-format-prettier-format)
+    (js2-mode . code-format-prettier-format))
   "Assosiate list of major mode and code format function."
   :group 'code-format)
 
@@ -113,15 +128,21 @@ CHAR-START to CHAR-END."
       ;; temp-buffer has '{ "Cursor": 50, "IncompleteFormat": false }'
       ;; at the top.
       (with-current-buffer temp-buffer
-        (delete-region (progn (goto-line 1) (beginning-of-line) (point))
-                       (progn (goto-line 2) (beginning-of-line) (point))))
+        (delete-region (progn
+                         (goto-char (point-min))
+                         (beginning-of-line)
+                         (point))
+                       (progn
+                         (goto-char (point-min))
+                         (forward-line 1)
+                         (beginning-of-line)
+                         (point))))
       (if code-format-enable-c++-buffer-mode
           (with-current-buffer temp-buffer
             (c++-mode)))
       temp-buffer)))
 
-(defun code-format-python-autopep8-format (code-buffer
-                                           char-start char-end)
+(defun code-format-python-autopep8-format (code-buffer char-start char-end)
   "Format CODE-BUFFER from CHAR-START to CHAR-END with autopep8."
   (with-current-buffer code-buffer      ; current-buffer = code-buffer
     (let ((start (position-bytes char-start))
@@ -142,6 +163,26 @@ CHAR-START to CHAR-END."
             (python-mode)))
       temp-buffer)))
 
+(defun code-format-prettier-format (code-buffer char-start char-end)
+  "Format CODE-BUFFER from CHAR-START to CHAR-END with prettier."
+  (with-current-buffer code-buffer      ; current-buffer = code-buffer
+    (let ((start (position-bytes char-start))
+          (end (position-bytes char-end))
+          (temp-buffer (code-format-get-clean-formatted-buffer))
+          (exe (or code-format-prettier-executable
+                   (executable-find "prettier"))))
+      (message "%s -- %s" (number-to-string start) (number-to-string end))
+      (apply #'call-process-region
+             (point-min) (point-max) exe
+             nil temp-buffer nil
+             ;;"-assume-filename" (or (buffer-file-name) "")
+             "--range-start" (number-to-string (1- start))
+             "--range-end" (number-to-string (1- end))
+             "--stdin"
+             code-format-prettier-options)
+      ;; force to set major mode for temp-buffer?
+      temp-buffer)))
+
 (defun code-format-view-region (char-start char-end)
   "Apply formatter to selected region and merge the result by ediff.
 
@@ -160,7 +201,7 @@ the end position of region to format."
           (if (code-format-have-difference (current-buffer) formatted-buffer)
               (ediff-buffers (current-buffer) formatted-buffer)
             (message "No need to fix! Have a good luck!")))
-      (message "No formatter is specified"))))
+      (message "No formatter is specified for %s" major-mode))))
 
 (defun code-format-have-difference (buffer-a buffer-b)
   "Return true if two buffers has difference.
