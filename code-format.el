@@ -66,6 +66,16 @@
   :type 'string
   :group 'code-format)
 
+(defcustom code-format-yapf-format-executable nil
+  "Path to yapf executable."
+  :type 'string
+  :group 'code-format)
+
+(defcustom code-format-yapf-options nil
+  "Options for yapf."
+  :type 'string
+  :group 'code-format)
+
 (defcustom code-format-prettier-options nil
   "Options for prettier."
   :type 'string
@@ -73,7 +83,7 @@
 
 (defcustom code-format-formatter-alist
   '((c++-mode . code-format-c++-clang-format)
-    (python-mode . code-format-python-autopep8-format)
+    (python-mode . code-format-python-yapf-format)
     (typescript-mode . code-format-prettier-format)
     (javascript-mode . code-format-prettier-format)
     (web-mode . code-format-prettier-format)
@@ -145,6 +155,24 @@ CHAR-START to CHAR-END."
              "--line-range" (number-to-string start) (number-to-string end)
              "-"
              code-format-autopep8-options)
+      temp-buffer)))
+
+(defun code-format-python-yapf-format (code-buffer char-start char-end)
+  "Format CODE-BUFFER from CHAR-START to CHAR-END with yapf."
+  (with-current-buffer code-buffer      ; current-buffer = code-buffer
+    (let ((start (position-bytes char-start))
+          (end (position-bytes char-end))
+          (temp-buffer (code-format-get-clean-formatted-buffer))
+          (exe (or code-format-yapf-format-executable
+                   (executable-find "yapf"))))
+      (message "%s -- %s" (number-to-string start) (number-to-string end))
+      (apply #'call-process-region
+             (point-min) (point-max) exe
+             nil temp-buffer nil
+             ;;"-assume-filename" (or (buffer-file-name) "")
+             "--lines"
+             (format "%d-%d" (number-to-string start) (number-to-string end))
+             code-format-yapf-options)
       temp-buffer)))
 
 (defun code-format-prettier-format (code-buffer char-start char-end)
