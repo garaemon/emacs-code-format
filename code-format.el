@@ -183,13 +183,13 @@ CHAR-START to CHAR-END."
           (temp-buffer (code-format-get-clean-formatted-buffer))
           (exe (or code-format-prettier-executable
                    (executable-find "prettier"))))
-      (message "%s -- %s" (number-to-string start) (number-to-string end))
       (apply #'call-process-region
              (point-min) (point-max) exe
              nil temp-buffer nil
              "--range-start" (number-to-string (1- start))
              "--range-end" (number-to-string (1- end))
              "--stdin"
+             "--stdin-filepath" (buffer-file-name code-buffer)
              code-format-prettier-options)
       temp-buffer)))
 
