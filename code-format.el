@@ -152,7 +152,9 @@ CHAR-START to CHAR-END."
              (point-min) (point-max) exe
              nil temp-buffer nil
              ;;"-assume-filename" (or (buffer-file-name) "")
-             "--line-range" (number-to-string start) (number-to-string end)
+             "--line-range"
+             (number-to-string (line-number-at-pos char-start))
+             (number-to-string (line-number-at-pos char-end))
              "-"
              code-format-autopep8-options)
       temp-buffer)))
