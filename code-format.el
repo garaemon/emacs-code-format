@@ -171,9 +171,10 @@ CHAR-START to CHAR-END."
       (apply #'call-process-region
              (point-min) (point-max) exe
              nil temp-buffer nil
-             ;;"-assume-filename" (or (buffer-file-name) "")
              "--lines"
-             (format "%d-%d" (number-to-string start) (number-to-string end))
+             (format "%d-%d"
+                     (line-number-at-pos char-start)
+                     (line-number-at-pos char-end))
              code-format-yapf-options)
       temp-buffer)))
 
